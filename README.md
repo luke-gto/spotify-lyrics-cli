@@ -14,4 +14,4 @@ Simple Python script to quickly show on the terminal the lyrics of the song that
 		GENIUS_TOKEN='YOUR TOKEN HERE'
 
 
-4. The script is more handy if you can launch it with a [shell alias](https://en.wikipedia.org/wiki/Alias_(command)) alias.
+4. The script is more handy if you can launch it with a [shell alias](https://en.wikipedia.org/wiki/Alias_(command)).
