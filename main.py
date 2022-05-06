@@ -1,3 +1,4 @@
+from functools import cache
 import lyricsgenius
 from dotenv import load_dotenv
 import os
@@ -43,9 +44,13 @@ def get_lyrics(title, artist):
     print("\n" + song.lyrics)
 
 
-def spotify_playback():
+def spotify_playback(SPOTIPY_CLIENT_ID,SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI):
     scope = "user-read-playback-state"
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
+                                               client_secret=SPOTIPY_CLIENT_SECRET,
+                                               redirect_uri=SPOTIPY_REDIRECT_URI,
+                                               scope=scope, cache_path="./cache.txt"))
+
     results = sp.current_playback()
     if results == None:
 
@@ -58,9 +63,12 @@ def spotify_playback():
         return title, artist
 
 
-def last_song_played():
+def last_song_played(SPOTIPY_CLIENT_ID,SPOTIPY_CLIENT_SECRET, SPOTIPY_REDIRECT_URI):
     scope = "user-read-recently-played"
-    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(scope=scope))
+    sp = spotipy.Spotify(auth_manager=SpotifyOAuth(client_id=SPOTIPY_CLIENT_ID,
+                                               client_secret=SPOTIPY_CLIENT_SECRET,
+                                               redirect_uri=SPOTIPY_REDIRECT_URI,
+                                               scope=scope, cache_path="./cache.txt"))
     results = sp.current_user_recently_played(limit=1)
     last_song_title = results["items"][0]["track"]["name"]
     last_song_artist = results["items"][0]["track"]["album"]["artists"][0]["name"]
@@ -69,12 +77,12 @@ def last_song_played():
 
 if __name__ == "__main__":
 
-    load_credentials()
+    credentials = load_credentials()
 
-    data = spotify_playback()
+    data = spotify_playback(credentials[0], credentials[1], credentials[2])
 
     if data == None:
-        data = last_song_played()
+        data = last_song_played(credentials[0], credentials[1], credentials[2])
         print("No song is being played at the moment on your Spotify account, sorry.\n")
         user_input = input(
             "Do you want to get the lyrics of your last played song: {} by {} ? Y/N\n".format(
