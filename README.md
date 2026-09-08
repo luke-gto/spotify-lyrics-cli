@@ -6,12 +6,18 @@ Simple Python script to quickly show on the terminal the lyrics of the song that
 
 2. Install the dependencies with ```pip install -r requirements.txt```
 
-3.  You need to put the credentials for accessing the [Spotify Web API](https://developer.spotify.com/dashboard/login) Spotify Web API and the [Genius API](http://genius.com/api-clients) Genius API in the ```.env``` file:
+3.  You need to put the credentials for accessing the [Spotify Web API](https://developer.spotify.com/dashboard/login) Spotify Web API and the [Genius API](http://genius.com/api-clients) Genius API in the ```.env``` file. Copy the template and fill it in:
+
+	```
+	cp .env.example .env
+	```
 
 		SPOTIPY_CLIENT_ID='YOUR CLIENT ID HERE'
 		SPOTIPY_CLIENT_SECRET='YOUR CLIENT SECRET HERE'
 		SPOTIPY_REDIRECT_URI='YOUR REDIRECT URI HERE'
 		GENIUS_TOKEN='YOUR TOKEN HERE'
+
+	The ```.env``` file is git-ignored: never commit your real credentials.
 
 
 4. The script is more handy if you can launch it with a [shell alias](https://en.wikipedia.org/wiki/Alias_(command)).
