@@ -1,9 +1,11 @@
+import argparse
 import os
 import sys
 
 import lyricsgenius
-from dotenv import load_dotenv
+import requests
 import spotipy
+from dotenv import load_dotenv
 from spotipy.oauth2 import SpotifyOAuth
 
 script_directory = os.path.dirname(os.path.realpath(__file__))
@@ -16,6 +18,24 @@ CREDENTIAL_KEYS = (
     "SPOTIPY_REDIRECT_URI",
     "GENIUS_TOKEN",
 )
+
+
+def build_parser():
+    parser = argparse.ArgumentParser(
+        description="Show the lyrics of the song currently playing on Spotify, "
+        "or of any song passed as argument."
+    )
+    parser.add_argument(
+        "title",
+        nargs="?",
+        help="song title to look up instead of the current playback",
+    )
+    parser.add_argument(
+        "artist",
+        nargs="?",
+        help="artist of the song to look up",
+    )
+    return parser
 
 
 def load_credentials():
@@ -49,13 +69,42 @@ def load_credentials():
     )
 
 
+def clean_lyrics(lyrics):
+    """Drop the trailing 'Embed' line lyricsgenius leaves at the end."""
+    lines = lyrics.splitlines()
+    if lines and lines[-1].strip() == "Embed":
+        lines.pop()
+    return "\n".join(lines).rstrip()
+
+
 def get_lyrics(title, artist, genius_token):
     genius = lyricsgenius.Genius(genius_token)
-    song = genius.search_song(title, artist)
+    try:
+        song = genius.search_song(title, artist)
+    except requests.RequestException as exc:
+        sys.exit("Genius lookup failed: network error ({})".format(exc))
     if song is None:
         print("\nNo lyrics found on Genius for {} by {}.".format(title, artist))
-        return
-    print("\n" + song.lyrics)
+        return False
+    print("\n{} - {}\n".format(title, artist))
+    print(clean_lyrics(song.lyrics))
+    return True
+
+
+def spotify_request(description, func):
+    """Run a Spotify API call, turning failures into readable messages."""
+    try:
+        return func()
+    except spotipy.SpotifyOauthError as exc:
+        sys.exit(
+            "{} failed: Spotify rejected the credentials in .env ({})".format(
+                description, exc
+            )
+        )
+    except spotipy.SpotifyException as exc:
+        sys.exit("{} failed: Spotify API error ({})".format(description, exc))
+    except requests.RequestException as exc:
+        sys.exit("{} failed: network error ({})".format(description, exc))
 
 
 def spotify_playback(client_id, client_secret, redirect_uri):
@@ -64,8 +113,8 @@ def spotify_playback(client_id, client_secret, redirect_uri):
                                                client_secret=client_secret,
                                                redirect_uri=redirect_uri,
                                                scope=scope, cache_path=cache_file))
-    results = sp.current_playback()
-    if results is None:
+    results = spotify_request("Playback lookup", sp.current_playback)
+    if not results or results.get("item") is None:
         return None
 
     title = results["item"]["name"]
@@ -79,7 +128,10 @@ def last_song_played(client_id, client_secret, redirect_uri):
                                                client_secret=client_secret,
                                                redirect_uri=redirect_uri,
                                                scope=scope, cache_path=cache_file))
-    results = sp.current_user_recently_played(limit=1)
+    results = spotify_request(
+        "Recently played lookup",
+        lambda: sp.current_user_recently_played(limit=1),
+    )
     items = (results or {}).get("items") or []
     if not items:
         sys.exit("No recently played tracks on this Spotify account yet: nothing to fetch lyrics for.")
@@ -88,9 +140,16 @@ def last_song_played(client_id, client_secret, redirect_uri):
     return last_song_title, last_song_artist
 
 
-if __name__ == "__main__":
+def main(argv=None):
+    args = build_parser().parse_args(argv)
+    if bool(args.title) != bool(args.artist):
+        sys.exit("Provide both a title and an artist, or neither to use the current playback.")
 
     client_id, client_secret, redirect_uri, genius_token = load_credentials()
+
+    if args.title:
+        found = get_lyrics(args.title, args.artist, genius_token)
+        sys.exit(0 if found else 1)
 
     data = spotify_playback(client_id, client_secret, redirect_uri)
 
@@ -102,10 +161,12 @@ if __name__ == "__main__":
                 data[0], data[1]
             )
         )
-        if user_input.lower() == "y":
-            get_lyrics(data[0], data[1], genius_token)
-        else:
+        if user_input.lower() != "y":
             print("\nOk, bye.")
-            sys.exit()
-    else:
-        get_lyrics(data[0], data[1], genius_token)
+            return
+
+    get_lyrics(data[0], data[1], genius_token)
+
+
+if __name__ == "__main__":
+    main()
